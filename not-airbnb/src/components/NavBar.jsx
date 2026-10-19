@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { HomeIcon, UserIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/solid';
+
 
 const NavBar = () => {
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -20,14 +21,14 @@ const NavBar = () => {
       await logout();
       navigate('/');
     } catch (error) {
-      console.error('Failed to log out:', error);
+      setError(error.message);
     }
   };
 
   return (
     <nav className="bg-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        {error && <p role="alert">{error}</p>}<div className="flex flex-wrap gap-3 justify-between min-h-16 py-3">
           <div className="flex">
             <Link to="/" className="flex-shrink-0 flex items-center">
               <span className="text-2xl font-bold text-rose-500">notAirbnb</span>
@@ -55,10 +56,14 @@ const NavBar = () => {
 
           <div className="flex items-center">
             {currentUser ? (
-              <div className="flex items-center space-x-4">
-                <Link to="/listings" className="text-gray-700 hover:text-rose-500">
+              <div className="flex flex-wrap items-center gap-4">
+                {currentUser.role === 'host' && <Link to="/listings" className="text-gray-700 hover:text-rose-500">
                   My Listings
-                </Link>
+                </Link>}
+                <Link to="/cart" className="text-gray-700 hover:text-rose-500">Cart</Link>
+                <Link to="/bookings" className="text-gray-700 hover:text-rose-500">Bookings</Link>
+                <Link to="/account" className="text-gray-700 hover:text-rose-500">Account</Link>
+                <Link to="/support" className="text-gray-700 hover:text-rose-500">Support</Link>
                 <Link to="/chat" className="text-gray-700 hover:text-rose-500">
                   Messages
                 </Link>
@@ -70,7 +75,7 @@ const NavBar = () => {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <Link to="/login" className="text-gray-700 hover:text-rose-500">
                   Login
                 </Link>

@@ -10,6 +10,10 @@ import SearchPage from './pages/Search';
 import PropertyListing from './pages/PropertyListing';
 import ListingsPage from './pages/ListingsPage';
 import ChatPage from './pages/ChatPage';
+import CartPage from './pages/CartPage';
+import BookingsPage from './pages/BookingsPage';
+import AccountPage from './pages/AccountPage';
+import SupportPage from './pages/SupportPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -20,6 +24,10 @@ function App() {
           <div className="min-h-screen bg-gray-50">
             <NavBar />
             <Routes>
+              <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+              <Route path="/bookings" element={<ProtectedRoute><BookingsPage /></ProtectedRoute>} />
+              <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+              <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
@@ -41,7 +49,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-            </Routes>
+            <Route path="*" element={<p className="p-8">Page not found.</p>} /></Routes>
           </div>
         </DataProvider>
       </AuthProvider>

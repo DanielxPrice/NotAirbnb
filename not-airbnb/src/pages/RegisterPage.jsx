@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const RegisterPage = () => {
+  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('traveler');
   const { register } = useAuth();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    register(email, password);
+  const handleSubmit = async (e) => {
+    e.preventDefault(); setError(''); setBusy(true);
+    try { await register(email, password, role); navigate('/'); }
+    catch (error) { setError(error.message); }
+    finally { setBusy(false); }
   };
 
   return (
@@ -28,7 +33,7 @@ const RegisterPage = () => {
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
+          {error && <p role="alert" className="text-red-700">{error}</p>}<div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="email" className="sr-only">
                 Email address
@@ -51,7 +56,7 @@ const RegisterPage = () => {
               <input
                 id="password"
                 name="password"
-                type="password"
+                type="password" autoComplete="new-password" minLength={8}
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-rose-500 focus:border-rose-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
@@ -78,7 +83,7 @@ const RegisterPage = () => {
 
           <div>
             <button
-              type="submit"
+              type="submit" disabled={busy}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
             >
               Register

@@ -1,0 +1,54 @@
+{
+  "name": "not-airbnb-api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --runInBand --coverage",
+    "seed": "node src/seed.js",
+    "test:e2e": "playwright test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
+    "mongoose": "^8.19.0",
+    "multer": "^2.0.2",
+    "sharp": "^0.35.5",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "jest": "^30.2.0",
+    "mongodb-memory-server": "^10.2.1",
+    "supertest": "^7.1.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 120000,
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js",
+      "!src/seed.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 81,
+        "branches": 81,
+        "functions": 81,
+        "lines": 81
+      }
+    },
+    "testMatch": [
+      "**/test/**/*.test.js"
+    ]
+  }
+}

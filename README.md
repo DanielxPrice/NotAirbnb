@@ -1,3 +1,5 @@
+Deployment and development instructions: [SETUP.md](SETUP.md). API reference: [docs/API.md](docs/API.md).
+
 # Group 5 Class Project
  
  | ID | 12345 |

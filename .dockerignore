@@ -1,0 +1,10 @@
+.git
+**/node_modules
+**/.npm-cache
+**/coverage
+**/build
+**/.env
+**/.env.*
+**/uploads
+**/.test-uploads
+**/.mongodb-binaries

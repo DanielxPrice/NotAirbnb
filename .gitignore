@@ -1,2 +1,13 @@
 node_modules/
-.vscode
+.vscode/
+.env
+.env.*
+!.env.example
+.npm-cache/
+coverage/
+build/
+server/uploads/
+.test-uploads/
+.mongodb-binaries/
+playwright-report/
+test-results/

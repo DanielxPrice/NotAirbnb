@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { MapPinIcon, StarIcon } from '@heroicons/react/24/solid';
 
 const Search = () => {
-  const { listings } = useData();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { listings, loading } = useData();
+  const [params] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(params.get('q') || '');
+  useEffect(() => { setSearchQuery(params.get('q') || ''); }, [params]);
+  const [bedrooms, setBedrooms] = useState(0);
+  const [rating, setRating] = useState(0);
   const [priceRange, setPriceRange] = useState([0, 1000]);
   const [guests, setGuests] = useState(1);
 
@@ -14,7 +18,7 @@ const Search = () => {
                          listing.location.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPrice = listing.price >= priceRange[0] && listing.price <= priceRange[1];
     const matchesGuests = listing.maxGuests >= guests;
-    return matchesSearch && matchesPrice && matchesGuests;
+    return matchesSearch && matchesPrice && matchesGuests && listing.bedrooms >= bedrooms && listing.rating >= rating;
   });
 
   return (
@@ -26,6 +30,8 @@ const Search = () => {
             <h2 className="text-lg font-semibold mb-4">Filters</h2>
             
             <div className="space-y-4">
+              <label className="block">Minimum bedrooms<input aria-label="Minimum bedrooms" type="number" min="0" value={bedrooms} onChange={e => setBedrooms(Number(e.target.value))} className="block w-full border rounded p-2" /></label>
+              <label className="block">Minimum rating<select aria-label="Minimum rating" value={rating} onChange={e => setRating(Number(e.target.value))} className="block w-full border rounded p-2">{[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n === 0 ? 'Any' : n}</option>)}</select></label>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Search</label>
                 <input
@@ -75,6 +81,8 @@ const Search = () => {
         {/* Results */}
         <div className="lg:col-span-3">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {loading && <p>Loading properties?</p>}
+            {!loading && filteredListings.length === 0 && <p>No properties match your search.</p>}
             {filteredListings.map((listing) => (
               <Link
                 key={listing.id}

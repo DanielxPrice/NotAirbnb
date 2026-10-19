@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
+import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { StarIcon, MapPinIcon, HomeIcon, SparklesIcon, UserIcon } from '@heroicons/react/24/solid';
 
 const PropertyListing = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const { listings, setListings } = useData();
+  const { listings, loading, refresh } = useData();
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const bookingKey = useRef(crypto.randomUUID());
   const [bookingDates, setBookingDates] = useState({
     checkIn: '',
     checkOut: '',
@@ -18,7 +23,9 @@ const PropertyListing = () => {
     comment: ''
   });
 
-  const listing = listings.find(l => l.id === parseInt(id));
+  useEffect(() => { bookingKey.current = crypto.randomUUID(); }, [id, bookingDates.checkIn, bookingDates.checkOut, bookingDates.guests]);
+  const listing = listings.find(l => l.id === id);
+  if (loading) return <p className="p-8">Loading property...</p>;
 
   if (!listing) {
     return (
@@ -28,75 +35,35 @@ const PropertyListing = () => {
     );
   }
 
-  const handleBooking = (e) => {
+  const handleBooking = async (e) => {
     e.preventDefault();
-    if (!user) {
-      alert('Please login to book this property');
-      return;
-    }
-
-    const booking = {
-      id: Date.now(),
-      propertyId: listing.id,
-      userId: user.id,
-      checkIn: bookingDates.checkIn,
-      checkOut: bookingDates.checkOut,
-      guests: bookingDates.guests,
-      totalPrice: calculateTotalPrice(),
-      status: 'pending'
-    };
-
-    // Update the listing with the new booking
-    const updatedListing = {
-      ...listing,
-      bookings: [...(listing.bookings || []), booking]
-    };
-
-    setListings(listings.map(l => l.id === listing.id ? updatedListing : l));
-    alert('Booking request sent!');
+    if (!user) { navigate('/login'); return; }
+    setBusy(true); setNotice('');
+    try {
+      const cart = e.nativeEvent.submitter?.value === 'cart';
+      await api(cart ? '/cart' : '/bookings', { method: 'POST', headers: { 'Idempotency-Key': bookingKey.current }, body: { propertyId: id, ...bookingDates } });
+      navigate(cart ? '/cart' : '/bookings');
+    } catch (error) { setNotice(error.message); } finally { setBusy(false); }
   };
-
-  const handleReview = (e) => {
-    e.preventDefault();
-    if (!user) {
-      alert('Please login to leave a review');
-      return;
-    }
-
-    const newReview = {
-      id: Date.now(),
-      userId: user.id,
-      userName: user.email.split('@')[0],
-      rating: review.rating,
-      comment: review.comment,
-      date: new Date().toISOString()
-    };
-
-    const updatedListing = {
-      ...listing,
-      reviews: [...(listing.reviews || []), newReview],
-      rating: calculateNewRating([...(listing.reviews || []), newReview])
-    };
-
-    setListings(listings.map(l => l.id === listing.id ? updatedListing : l));
-    setReview({ rating: 5, comment: '' });
+  const handleReview = async (e) => {
+    e.preventDefault(); setBusy(true); setNotice('');
+    try { await api('/listings/' + id + '/reviews', { method: 'POST', body: review }); await refresh(); setReview({ rating: 5, comment: '' }); setNotice('Review posted.'); }
+    catch (error) { setNotice(error.message); } finally { setBusy(false); }
   };
-
+  const messageHost = async () => {
+    if (!user) { navigate('/login'); return; }
+    setBusy(true);
+    try { const data = await api('/threads', { method: 'POST', body: { propertyId: id } }); navigate('/chat?thread=' + data.id); }
+    catch (error) { setNotice(error.message); } finally { setBusy(false); }
+  };
   const calculateTotalPrice = () => {
-    const checkIn = new Date(bookingDates.checkIn);
-    const checkOut = new Date(bookingDates.checkOut);
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-    return nights * listing.price;
-  };
-
-  const calculateNewRating = (reviews) => {
-    if (reviews.length === 0) return 0;
-    const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
-    return (sum / reviews.length).toFixed(1);
+    const nights = (new Date(bookingDates.checkOut) - new Date(bookingDates.checkIn)) / 86400000;
+    return Number.isFinite(nights) && nights > 0 ? (Math.round(listing.price * 100) * nights / 100).toFixed(2) : '0.00';
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {notice && <p role="status" className="mb-4 text-rose-700">{notice}</p>}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <img
@@ -128,6 +95,8 @@ const PropertyListing = () => {
             </div>
           </div>
           <p className="mt-4 text-gray-600">{listing.description}</p>
+          <div className="flex gap-3 overflow-x-auto mt-4">{listing.images.slice(1).map(image => <img key={image} src={image} alt={listing.title} className="h-32 rounded-lg" />)}</div>
+          {user?.id !== listing.host.id && <button className="btn btn-secondary mt-4" disabled={busy} onClick={messageHost}>Message Host</button>}
 
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Reviews</h2>
@@ -164,7 +133,7 @@ const PropertyListing = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Comment</label>
                     <textarea
-                      required
+                      maxLength={2000}
                       value={review.comment}
                       onChange={(e) => setReview({ ...review, comment: e.target.value })}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-rose-500 focus:ring-rose-500"
@@ -172,7 +141,7 @@ const PropertyListing = () => {
                     />
                   </div>
                   <button
-                    type="submit"
+                    type="submit" disabled={busy}
                     className="bg-rose-500 text-white px-4 py-2 rounded-md hover:bg-rose-600"
                   >
                     Submit Review
@@ -188,35 +157,35 @@ const PropertyListing = () => {
             <h2 className="text-2xl font-bold text-gray-900">${listing.price}/night</h2>
             <form onSubmit={handleBooking} className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Check-in</label>
+                <label htmlFor="checkIn" className="block text-sm font-medium text-gray-700">Check-in</label>
                 <input
                   type="date"
                   required
                   min={new Date().toISOString().split('T')[0]}
-                  value={bookingDates.checkIn}
+                  id="checkIn" value={bookingDates.checkIn}
                   onChange={(e) => setBookingDates({ ...bookingDates, checkIn: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-rose-500 focus:ring-rose-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Check-out</label>
+                <label htmlFor="checkOut" className="block text-sm font-medium text-gray-700">Check-out</label>
                 <input
                   type="date"
                   required
                   min={bookingDates.checkIn || new Date().toISOString().split('T')[0]}
-                  value={bookingDates.checkOut}
+                  id="checkOut" value={bookingDates.checkOut}
                   onChange={(e) => setBookingDates({ ...bookingDates, checkOut: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-rose-500 focus:ring-rose-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Guests</label>
+                <label htmlFor="guests" className="block text-sm font-medium text-gray-700">Guests</label>
                 <input
                   type="number"
                   required
                   min="1"
                   max={listing.maxGuests}
-                  value={bookingDates.guests}
+                  id="guests" value={bookingDates.guests}
                   onChange={(e) => setBookingDates({ ...bookingDates, guests: parseInt(e.target.value) })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-rose-500 focus:ring-rose-500"
                 />
@@ -228,11 +197,12 @@ const PropertyListing = () => {
                 </div>
               </div>
               <button
-                type="submit"
+                type="submit" disabled={busy}
                 className="w-full bg-rose-500 text-white px-4 py-2 rounded-md hover:bg-rose-600"
               >
                 Book Now
               </button>
+              <button type="submit" value="cart" disabled={busy} className="w-full btn btn-secondary">Add to Cart</button>
             </form>
           </div>
         </div>
@@ -241,4 +211,4 @@ const PropertyListing = () => {
   );
 };
 
-export default PropertyListing; 
+export default PropertyListing;
