@@ -4,6 +4,8 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const sharp = require('sharp');
+const { v2: cloudinary } = require('cloudinary');
+const { Writable } = require('stream');
 const fs = require('fs/promises');
 const path = require('path');
 const { createApp } = require('../src/app');
@@ -51,6 +53,7 @@ afterAll(async () => {
   if (mongo) await mongo.stop();
   await fs.rm(uploadDir, { recursive: true, force: true });
 });
+afterEach(() => jest.restoreAllMocks());
 
 describe('accounts and session protection', () => {
   test('registers, hashes passwords, restores sessions and revokes logout tokens', async () => {
@@ -94,6 +97,50 @@ describe('accounts and session protection', () => {
 });
 
 describe('property management, discovery and image uploads', () => {
+  const cloudOptions = { disableRateLimit: true, uploadStorage: 'cloudinary', cloudinaryCloudName: 'test-cloud', cloudinaryApiKey: 'test-key', cloudinaryApiSecret: 'test-secret' };
+  test('stores validated photos in Cloudinary and preserves owner-only listing attachment', async () => {
+    let uploadedBuffer;
+    const url = 'https://res.cloudinary.com/test-cloud/image/upload/notairbnb/photo.webp';
+    const mock = jest.spyOn(cloudinary.uploader, 'upload_stream').mockImplementation((options, callback) => new Writable({
+      write(chunk, encoding, done) { uploadedBuffer = chunk; done(); },
+      final(done) { callback(null, { secure_url: url }); done(); }
+    }));
+    const cloudApp = createApp(cloudOptions);
+    const response = await call(host, 'post', '/uploads', undefined, cloudApp).attach('image', png, 'photo.png').expect(201);
+    expect(response.body).toEqual({ url });
+    expect((await sharp(uploadedBuffer).metadata()).format).toBe('webp');
+    expect(mock.mock.calls[0][0]).toMatchObject({ cloud_name: 'test-cloud', folder: 'notairbnb', overwrite: false });
+    expect(await Upload.exists({ user: host.user._id, url })).toBeTruthy();
+    await call(host, 'post', '/listings', { ...listingData(), images: [url] }, cloudApp).expect(201);
+    await call(other, 'post', '/listings', { ...listingData(), images: [url] }, cloudApp).expect(400);
+  });
+  test('fails clearly for missing storage configuration', () => {
+    expect(() => createApp({ uploadStorage: 'unsupported' })).toThrow('UPLOAD_STORAGE');
+    for (const missing of ['cloudinaryCloudName', 'cloudinaryApiKey', 'cloudinaryApiSecret']) {
+      expect(() => createApp({ ...cloudOptions, [missing]: '' })).toThrow('Cloudinary storage requires');
+    }
+  });
+  test('handles Cloudinary errors without saving broken records or exposing provider details', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const mock = jest.spyOn(cloudinary.uploader, 'upload_stream');
+    const cloudApp = createApp(cloudOptions);
+    for (const result of ['callback-error', 'stream-error', 'invalid-url']) {
+      mock.mockImplementation((options, callback) => new Writable({
+        write(chunk, encoding, done) {
+          if (result === 'stream-error') return done(new Error('private provider error'));
+          done();
+        },
+        final(done) {
+          if (result === 'callback-error') callback(new Error('private provider error'));
+          else callback(null, { secure_url: 'http://invalid.example/image' });
+          done();
+        }
+      }));
+      const response = await call(host, 'post', '/uploads', undefined, cloudApp).attach('image', png, 'photo.png').expect(503);
+      expect(response.body.error).not.toContain('private provider');
+    }
+    expect(await Upload.countDocuments()).toBe(1); // Only the fixture remains.
+  });
   test('publishes public data and filters without exposing bookings or private email', async () => {
     await book();
     const result = await call(null, 'get', '/listings?q=miami&minPrice=100&maxPrice=200&guests=2&bedrooms=2&rating=0').expect(200);

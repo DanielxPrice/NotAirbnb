@@ -16,8 +16,8 @@ All paths below start with `/api`. JSON errors have `{ "error": "message" }`. Un
 | PUT /listings/:id | Owner | Same complete editable listing payload; cannot transfer ownership |
 | DELETE /listings/:id | Owner | Archives property, 204 |
 | POST /listings/:id/reviews | Completed paid guest | rating 1?5, optional comment |
-| POST /uploads | Host | multipart/form-data field image; returns owned photo URL |
-| GET /uploads/:file | Public | Re-encoded WebP image |
+| POST /uploads | Host | multipart/form-data field image; returns owned HTTPS Cloudinary URL in hosted mode, or a local /api/uploads URL in local mode |
+| GET /uploads/:file | Public | Locally stored re-encoded WebP image (Cloudinary photos use their returned HTTPS URL) |
 | GET /cart | Account | Returns owned items and current calculated totals |
 | POST /cart | Account | propertyId, checkIn/checkOut as YYYY-MM-DD, guests |
 | DELETE /cart/:id | Owner | Removes item, 204 |

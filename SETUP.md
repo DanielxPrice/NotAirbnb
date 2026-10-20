@@ -56,21 +56,30 @@ Optional seed: set `SEED_HOST_EMAIL` and `SEED_HOST_PASSWORD` in `server/.env`, 
 | `COOKIE_SECURE=true` | Production backend | HTTPS-only session cookies |
 | `NODE_ENV=production` | Production backend | Enforces HTTPS frontend/cookie configuration at startup |
 | `TRUST_PROXY` | Backend environment | Number of trusted proxies on the network path; local Compose sets 1 |
-| `UPLOAD_DIR` | Backend environment | Directory on durable storage, e.g. /app/uploads |
+| `UPLOAD_STORAGE=cloudinary` | Production backend | Store photos outside Render's temporary filesystem |
+| `CLOUDINARY_CLOUD_NAME` | Backend environment | Cloudinary product environment name |
+| `CLOUDINARY_API_KEY` | Backend environment | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Backend environment | Cloudinary API secret; keep private |
+| `UPLOAD_DIR` | Local backend only | Local photo directory when UPLOAD_STORAGE=local |
 | API hostname | `not-airbnb/vercel.json` | Replace the explicit REPLACE-WITH-YOUR-API-HOST placeholder |
 
 Session tokens are random opaque values stored in HttpOnly cookies; only their SHA-256 hashes are stored in MongoDB. No JWT secret is needed. Never put database credentials into frontend variables.
 
-## Suggested public deployment: Vercel + Render Docker + MongoDB Atlas
+## Free demo deployment: Vercel + Render Docker + Atlas + Cloudinary
 
-1. **Atlas:** create the database and a database user with access to this app's database. Add the backend host's outbound IP ranges to Atlas's network access list. [Atlas network access documentation](https://www.mongodb.com/docs/atlas/security/ip-access-list/).
-2. **Render:** create a Docker web service with root directory `server` and Dockerfile `./Dockerfile`. Set the backend variables above; use `/api/health` as the health check. The API listens on Render's `PORT` on all interfaces. Determine `TRUST_PROXY` for your actual proxy chain rather than blindly trusting arbitrary forwarded IPs.
-3. **Photo storage:** attach a persistent disk at `/app/uploads` and set `UPLOAD_DIR=/app/uploads`. Ensure it is writable by the container's `node` user (UID 1000). Render's ordinary filesystem is ephemeral; persistent disks require a paid service and support one instance. [Render disk documentation](https://render.com/docs/disks).
-4. **Vercel:** import this repository, set root directory to `not-airbnb`, framework to Create React App, build command to `npm run build`, and output to `build`. Replace the API hostname in `vercel.json` before deploying. [Vercel CRA documentation](https://vercel.com/docs/frameworks/frontend/create-react-app).
-5. Set the backend's `FRONTEND_URL` to the final Vercel HTTPS origin and enable secure cookies. The `/api/*` rewrite keeps browser traffic same-origin, including cookies and uploaded images. The SPA fallback supports direct links and refreshes.
-6. Register test accounts and verify uploads, logout/login, cart persistence, host acceptance and messaging at the public URL. Confirm a photo survives a backend redeploy. Use a separate backend/database for preview deployments: the backend accepts mutations only from its configured frontend origin.
+Use Atlas **Free**, Cloudinary **Free**, Render **Free** and Vercel **Hobby** (personal/noncommercial use). Choose actual free plans, not paid trials. Stay within each provider's usage limits. Use the included Vercel address; no custom domain purchase is required. Render's free backend sleeps after inactivity, so the first request can take about a minute. No persistent Render disk is needed with Cloudinary.
 
-Nothing has been published and no paid services have been created. The Vercel API placeholder must be replaced before the deployment can function.
+1. **Cloudinary:** create a Free account for Image & Video APIs. Find your cloud name, API key and API secret in its console/API Keys settings. Fill the corresponding blank fields in `server/.env` and change `UPLOAD_STORAGE=local` to `UPLOAD_STORAGE=cloudinary` to test remotely stored uploads locally. Keep these values private; no unsigned upload preset is required. [Cloudinary upload documentation](https://cloudinary.com/documentation/node_image_and_video_upload).
+2. **GitHub:** commit and push the Cloudinary changes and `render.yaml`. The private `.env` files remain ignored. Your earlier backend commit alone does not include this change.
+3. **Vercel:** import the repository on the Hobby plan, root `not-airbnb`, framework Create React App, build `npm run build`, output `build`. Note the assigned HTTPS production URL. The frontend can deploy before the API, but data/login will not work until steps 4-6 are completed. [Vercel CRA documentation](https://vercel.com/docs/frameworks/frontend/create-react-app).
+4. **Render:** choose New > Blueprint, connect the repository and use the root `render.yaml`. It declares one Docker web service on the **Free** plan and no disks/databases. Enter `MONGODB_URI` from your private file, `FRONTEND_URL` as the exact Vercel origin (no trailing slash), and the three Cloudinary settings. The blueprint sets `NODE_ENV=production`, `COOKIE_SECURE=true`, `UPLOAD_STORAGE=cloudinary` and `TRUST_PROXY=1`. The latter trusts Render's direct ingress proxy; revisit it if adding another proxy layer. Alternatively, create a Web Service manually using root `server`, Dockerfile `./Dockerfile`, context `.`, Free compute, and health check `/api/health`. [Render Docker documentation](https://render.com/docs/docker).
+5. **Atlas network access:** add the outbound IP ranges shown for the Render service to your Atlas access list. A local connection succeeding does not authorize Render's IP addresses. Redeploy/restart if the first startup timed out. Check `https://YOUR-API-HOST/api/health` returns `{ "ready": true }`. [Atlas network access documentation](https://www.mongodb.com/docs/atlas/security/ip-access-list/).
+6. **Connect frontend to backend:** replace `REPLACE-WITH-YOUR-API-HOST` in `not-airbnb/vercel.json` with the actual Render service hostname, commit and push. Vercel redeploys. The `/api/*` rewrite keeps browser session traffic same-origin; photo URLs point directly to Cloudinary's HTTPS CDN. The SPA fallback supports direct links and refreshes.
+7. **Verify the public site:** register host/traveler accounts; upload a photo; create a property; book, accept and simulate payment; test messaging and logout/login. Confirm the uploaded photo survives a backend redeploy. Use separate resources for preview deployments: mutations are allowed only from the configured frontend origin.
+
+Production defaults to Cloudinary storage and fails startup if credentials are missing instead of silently saving photos to an ephemeral filesystem. Local development/Docker Compose still defaults to local disk and needs no Cloudinary account. Existing local photos are not migrated automatically; re-upload any photos previously stored under `/api/uploads/` before sharing a hosted listing.
+
+No provider accounts or paid services have been created by the setup scripts. Hosted deployment still requires your account connections, credentials and actual service URLs. Free-plan limits: [Render](https://render.com/docs/free), [Atlas](https://www.mongodb.com/pricing), [Cloudinary](https://cloudinary.com/pricing), [Vercel](https://vercel.com/docs/plans/hobby).
 
 ## Simulated payments
 
@@ -96,7 +105,7 @@ The authenticated API accepts only an empty request body, checks booking ownersh
 - Support submissions are stored in MongoDB with an on-screen reference; outbound email and an admin support dashboard are not configured.
 - Email verification and password-reset email are not implemented. Saved card details, real charges and marketplace payouts are intentionally unsupported.
 - Photos are decoded and saved as WebP, at most 5 MB input and 25 megapixels, with up to ten images per property. Unattached photos are not automatically garbage-collected.
-- This is a single-instance project deployment. Large catalogs/conversations would need pagination, separate history collections and shared object storage.
+- This is a single-instance demo deployment with shared Cloudinary photo storage. Large catalogs/conversations would need pagination and separate history collections.
 
 ## Verification
 
@@ -129,6 +138,6 @@ On Windows with Edge installed, use `$env:PLAYWRIGHT_CHANNEL='msedge'` before `n
 
 GitHub Actions runs backend coverage and frontend tests/build. The browser suite is available locally; it is not in the default CI job.
 
-Verified during implementation: 20 backend integration tests, 9 frontend tests and a production build passed. Backend coverage measured 99.03% statements, 94.23% branches, 100% functions and lines. The real-browser flow passed in headless Edge, including clean test-server teardown. Docker Compose configuration validates, but the local Docker daemon was unavailable, so image builds/container startup have not been verified here.
+Verified during implementation: 23 backend integration tests, 9 frontend tests and a production build passed. Backend coverage measured 99.31% statements, 95.97% branches, 100% functions and lines. The real-browser flow passed in headless Edge, including clean test-server teardown. Docker Compose configuration validates, but the local Docker daemon was unavailable, so image builds/container startup have not been verified here.
 
-Dependency note: compatible upgrades and removal of unused packages reduced the inherited dependency issues. The legacy Create React App build/test toolchain still reports advisories, and React Router 6 has reported advisories; the app uses fixed internal destinations and does not implement SSR hydration. Do not run `npm audit fix --force` blindly: npm proposes replacing react-scripts with a nonfunctional version. A build-tool/router migration should be handled and tested separately. The backend production dependency audit reported zero vulnerabilities after the image-processing update. The backend development dependency tree still reports 19 moderate advisories in testing dependencies.
+Dependency note: compatible upgrades and removal of unused packages reduced the inherited dependency issues. The legacy Create React App build/test toolchain still reports advisories, and React Router 6 has reported advisories; the app uses fixed internal destinations and does not implement SSR hydration. Do not run `npm audit fix --force` blindly: npm proposes replacing react-scripts with a nonfunctional version. A build-tool/router migration should be handled and tested separately. The backend production dependency audit was clean after the image-processing update; rerun npm audit --omit=dev when updating dependencies. The backend development dependency tree still reports 19 moderate advisories in testing dependencies.

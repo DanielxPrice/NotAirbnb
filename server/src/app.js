@@ -19,6 +19,10 @@ function createApp(options = {}) {
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     secureCookies: process.env.COOKIE_SECURE === 'true',
     uploadDir: path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../uploads')),
+    uploadStorage: process.env.UPLOAD_STORAGE || (process.env.NODE_ENV === 'production' ? 'cloudinary' : 'local'),
+    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
+    cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET,
     ...options
   };
   const app = express();
