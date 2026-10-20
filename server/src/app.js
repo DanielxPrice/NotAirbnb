@@ -25,6 +25,8 @@ function createApp(options = {}) {
     cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET,
     ...options
   };
+  // Browsers send origins without a trailing slash, even for homepage URLs.
+  config.frontendUrl = config.frontendUrl.replace(/\/+$/, '');
   const app = express();
   app.disable('x-powered-by');
   // Set the number of trusted reverse proxies explicitly for your deployment.

@@ -56,6 +56,14 @@ afterAll(async () => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('accounts and session protection', () => {
+  test('normalizes a trailing slash in the configured frontend origin', async () => {
+    const normalized = createApp({ disableRateLimit: true, frontendUrl: origin + '/' });
+    const preflight = await request(normalized).options('/api/auth/login')
+      .set('Origin', origin).set('Access-Control-Request-Method', 'POST').expect(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe(origin);
+    await call(null, 'post', '/auth/login', {}, normalized).expect(400);
+    await call(null, 'post', '/auth/login', {}, normalized).set('Origin', 'https://evil.example').expect(403);
+  });
   test('registers, hashes passwords, restores sessions and revokes logout tokens', async () => {
     const agent = request.agent(app);
     const response = await agent.post('/api/auth/register').set('X-Requested-With', 'NotAirbnb').send({ email: 'NEW@example.com', password: 'Password123!', role: 'host' }).expect(201);
