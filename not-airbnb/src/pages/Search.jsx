@@ -10,13 +10,14 @@ const Search = () => {
   useEffect(() => { setSearchQuery(params.get('q') || ''); }, [params]);
   const [bedrooms, setBedrooms] = useState(0);
   const [rating, setRating] = useState(0);
-  const [priceRange, setPriceRange] = useState([0, 1000]);
+  const [priceRange, setPriceRange] = useState(['', '']);
   const [guests, setGuests] = useState(1);
 
   const filteredListings = listings.filter(listing => {
     const matchesSearch = listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          listing.location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPrice = listing.price >= priceRange[0] && listing.price <= priceRange[1];
+    const matchesPrice = (priceRange[0] === '' || listing.price >= Number(priceRange[0])) &&
+                         (priceRange[1] === '' || listing.price <= Number(priceRange[1]));
     const matchesGuests = listing.maxGuests >= guests;
     return matchesSearch && matchesPrice && matchesGuests && listing.bedrooms >= bedrooms && listing.rating >= rating;
   });
@@ -51,7 +52,7 @@ const Search = () => {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-rose-500 focus:ring-rose-500"
                     placeholder="Min"
                     value={priceRange[0]}
-                    onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                    onChange={(e) => setPriceRange([e.target.value, priceRange[1]])}
                   />
                   <span>to</span>
                   <input
@@ -59,7 +60,7 @@ const Search = () => {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-rose-500 focus:ring-rose-500"
                     placeholder="Max"
                     value={priceRange[1]}
-                    onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                    onChange={(e) => setPriceRange([priceRange[0], e.target.value])}
                   />
                 </div>
               </div>
