@@ -26,12 +26,12 @@ const NavBar = () => {
   };
 
   return (
-    <nav className="bg-white shadow-lg">
+    <nav className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {error && <p role="alert">{error}</p>}<div className="flex flex-wrap gap-3 justify-between min-h-16 py-3">
+        {error && <p role="alert">{error}</p>}<div className="flex flex-wrap gap-3 justify-between min-h-20 py-4">
           <div className="flex">
             <Link to="/" className="flex-shrink-0 flex items-center">
-              <span className="text-2xl font-bold text-rose-500">notAirbnb</span>
+              <span className="text-2xl font-bold tracking-tight text-rose-500">notAirbnb</span>
             </Link>
           </div>
 
@@ -41,6 +41,7 @@ const NavBar = () => {
                 <input
                   type="text"
                   className="w-full bg-gray-100 rounded-full py-2 px-4 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  aria-label="Search destinations"
                   placeholder="Search destinations..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -54,7 +55,8 @@ const NavBar = () => {
             </form>
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center text-sm font-medium">
+            <Link to="/search" className="mr-4 text-gray-700 hover:text-rose-500">Explore</Link>
             {currentUser ? (
               <div className="flex flex-wrap items-center gap-4">
                 {currentUser.role === 'host' && <Link to="/listings" className="text-gray-700 hover:text-rose-500">

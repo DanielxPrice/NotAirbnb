@@ -50,6 +50,7 @@ function App() {
                 }
               />
             <Route path="*" element={<p className="p-8">Page not found.</p>} /></Routes>
+            <footer className="max-w-7xl mx-auto mt-12 px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 flex flex-wrap justify-between gap-3 text-sm text-gray-500"><span className="font-semibold text-rose-500">notAirbnb</span><span>A portfolio booking experience. Payments are simulated.</span></footer>
           </div>
         </DataProvider>
       </AuthProvider>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { MapPinIcon, StarIcon } from '@heroicons/react/24/solid';
+import PropertyCard from '../components/PropertyCard';
 
 const Search = () => {
   const { listings, loading } = useData();
@@ -24,10 +24,11 @@ const Search = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8"><p className="text-xs font-bold uppercase tracking-widest text-rose-600 mb-2">Find your next escape</p><h1 className="text-3xl sm:text-4xl font-bold tracking-tight">A place that feels like you.</h1><p className="mt-3 text-gray-500">Explore stays, fine-tune the details, and settle into something special.</p></div>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Filters */}
         <div className="lg:col-span-1">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 lg:sticky lg:top-6">
             <h2 className="text-lg font-semibold mb-4">Filters</h2>
             
             <div className="space-y-4">
@@ -50,6 +51,7 @@ const Search = () => {
                   <input
                     type="number"
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-rose-500 focus:ring-rose-500"
+                    aria-label="Minimum price"
                     placeholder="Min"
                     value={priceRange[0]}
                     onChange={(e) => setPriceRange([e.target.value, priceRange[1]])}
@@ -58,6 +60,7 @@ const Search = () => {
                   <input
                     type="number"
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-rose-500 focus:ring-rose-500"
+                    aria-label="Maximum price"
                     placeholder="Max"
                     value={priceRange[1]}
                     onChange={(e) => setPriceRange([priceRange[0], e.target.value])}
@@ -80,41 +83,11 @@ const Search = () => {
         </div>
 
         {/* Results */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3"><p className="mb-5 text-sm text-gray-500" aria-live="polite">{loading ? 'Looking for stays...' : `${filteredListings.length} stays to explore`}</p>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {loading && <p>Loading properties?</p>}
+            {loading && <p>Loading properties...</p>}
             {!loading && filteredListings.length === 0 && <p>No properties match your search.</p>}
-            {filteredListings.map((listing) => (
-              <Link
-                key={listing.id}
-                to={`/listing/${listing.id}`}
-                className="group"
-              >
-                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="aspect-w-16 aspect-h-9">
-                    <img
-                      src={listing.images[0]}
-                      alt={listing.title}
-                      className="w-full h-48 object-cover"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{listing.title}</h3>
-                    <p className="mt-1 text-sm text-gray-500 flex items-center">
-                      <MapPinIcon className="h-4 w-4 mr-1" />
-                      {listing.location}
-                    </p>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex items-center">
-                        <StarIcon className="h-4 w-4 text-yellow-400" />
-                        <span className="ml-1 text-sm text-gray-600">{listing.rating}</span>
-                      </div>
-                      <p className="text-lg font-semibold text-gray-900">${listing.price}/night</p>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+            {filteredListings.map(listing => <PropertyCard key={listing.id} listing={listing} />)}
           </div>
         </div>
       </div>
