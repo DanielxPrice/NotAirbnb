@@ -18,7 +18,7 @@ const bookingSchema = new Schema({
   status: { type: String, enum: ['pending', 'accepted', 'denied', 'cancelled', 'paid'], default: 'pending' },
   paymentMode: { type: String, enum: ['simulated'] }, paidAt: Date
 }, { timestamps: true });
-const reviewSchema = new Schema({ user: ref, userName: String, rating: Number, comment: String }, { timestamps: true });
+const reviewSchema = new Schema({ user: { ...ref, required: function () { return !this.isDemo; } }, userName: String, rating: Number, comment: String, isDemo: { type: Boolean, default: false }, seedKey: String }, { timestamps: true });
 const listingSchema = new Schema({
   host: ref, title: String, location: String, description: String,
   price: Number, bedrooms: Number, bathrooms: Number, maxGuests: Number,
@@ -35,12 +35,15 @@ cartSchema.index({ user: 1, listing: 1, checkIn: 1, checkOut: 1 }, { unique: tru
 const threadSchema = new Schema({
   listing: { type: Schema.Types.ObjectId, ref: 'Listing', required: true },
   host: ref, guest: ref,
+  blockedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   messages: [{ sender: ref, text: String, createdAt: { type: Date, default: Date.now } }]
 }, { timestamps: true });
 threadSchema.index({ listing: 1, guest: 1 }, { unique: true });
 const uploadSchema = new Schema({ user: ref, url: { type: String, unique: true } }, { timestamps: true });
 const supportSchema = new Schema({ user: ref, email: String, subject: String, message: String }, { timestamps: true });
+const abuseCounterSchema = new Schema({ _id: String, count: { type: Number, default: 0 }, expiresAt: { type: Date, expires: 0 } });
 module.exports = {
+  AbuseCounter: mongoose.model('AbuseCounter', abuseCounterSchema),
   User: mongoose.model('User', userSchema), Session: mongoose.model('Session', sessionSchema),
   Listing: mongoose.model('Listing', listingSchema), Cart: mongoose.model('Cart', cartSchema),
   Thread: mongoose.model('Thread', threadSchema), Upload: mongoose.model('Upload', uploadSchema),

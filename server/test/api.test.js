@@ -198,7 +198,7 @@ describe('bookings, availability and carts', () => {
     expect(booking.totalPrice).toBe(250.5);
     const retry = await book(guest, {}, key);
     expect(retry.id).toBe(booking.id);
-    const [a, b] = await Promise.all([book(guest, {}, 'parallel-key'), book(guest, {}, 'parallel-key')]);
+    const [a, b] = await Promise.all([book(guest, { checkIn: date(20), checkOut: date(22) }, 'parallel-key'), book(guest, { checkIn: date(20), checkOut: date(22) }, 'parallel-key')]);
     expect(a.id).toBe(b.id);
     expect((await call(guest, 'get', '/bookings').expect(200)).body.bookings).toHaveLength(2);
     expect((await call(host, 'get', '/bookings').expect(200)).body.bookings).toHaveLength(2);
@@ -356,5 +356,90 @@ describe('reviews, private messages, support and routing', () => {
     for (let i = 0; i < 30; i++) await call(null, 'post', '/auth/login', {}, limited).expect(400);
     const result = await call(null, 'post', '/auth/login', {}, limited).expect(429);
     expect(result.body.error).toMatch(/Too many attempts/);
+  });
+});
+
+
+describe('abuse controls and account safety', () => {
+  test('revokes only other sessions for the signed-in account', async () => {
+    const second = crypto.randomBytes(32).toString('hex');
+    await Session.create({ user: guest.user._id, tokenHash: crypto.createHash('sha256').update(second).digest('hex'), expiresAt: new Date(Date.now() + 3600000) });
+    await call(null, 'post', '/auth/sessions/revoke-others', {}).expect(401);
+    await call(guest, 'post', '/auth/sessions/revoke-others', {}).expect(200);
+    await call({ token: second }, 'get', '/auth/me').expect(401);
+    await call(guest, 'get', '/auth/me').expect(200);
+    await call(host, 'get', '/auth/me').expect(200);
+  });
+  test('blocks both directions and only lets each participant remove their own block', async () => {
+    const { body: { id } } = await call(guest, 'post', '/threads', { propertyId: String(listing._id) });
+    await call(other, 'patch', '/threads/' + id + '/block', { blocked: true }).expect(404);
+    await call(guest, 'patch', '/threads/' + id + '/block', { blocked: 'true' }).expect(400);
+    await call(guest, 'patch', '/threads/' + id + '/block', { blocked: true }).expect(200);
+    await call(host, 'patch', '/threads/' + id + '/block', { blocked: false }).expect(200);
+    for (const person of [host, guest]) await call(person, 'post', '/threads/' + id + '/messages', { text: 'blocked' }).expect(404);
+    expect((await call(guest, 'get', '/threads')).body.threads[0]).toMatchObject({ blocked: true, blockedByMe: true });
+    await call(host, 'patch', '/threads/' + id + '/block', { blocked: true }).expect(200);
+    await call(guest, 'patch', '/threads/' + id + '/block', { blocked: false }).expect(200);
+    await call(guest, 'post', '/threads/' + id + '/messages', { text: 'still blocked' }).expect(404);
+    await call(host, 'patch', '/threads/' + id + '/block', { blocked: false }).expect(200);
+    await call(guest, 'post', '/threads/' + id + '/messages', { text: 'allowed' }).expect(201);
+  });
+  test('limits support spam across application instances while isolating users', async () => {
+    const first = createApp(), second = createApp();
+    for (let i = 0; i < 5; i++) await call(guest, 'post', '/support', { subject: 'Help', message: 'Question' }, first).expect(201);
+    const denied = await call(guest, 'post', '/support', { subject: 'Help', message: 'Question' }, second).expect(429);
+    expect(Number(denied.headers['retry-after'])).toBeGreaterThan(0);
+    expect(await Support.countDocuments({ user: guest.user._id })).toBe(5);
+    await call(host, 'post', '/support', { subject: 'Help', message: 'Question' }, second).expect(201);
+  });
+  test('enforces account upload and message limits before expensive work', async () => {
+    const { AbuseCounter } = require('../src/models');
+    const limited = createApp({ uploadDir });
+    const key = (action, user, seconds) => action + ':' + crypto.createHash('sha256').update(String(user._id)).digest('hex') + ':' + Math.floor(Date.now() / (seconds * 1000));
+    await AbuseCounter.create({ _id: key('uploads', host.user, 3600), count: 20, expiresAt: new Date(Date.now() + 3600000) });
+    await call(host, 'post', '/uploads', undefined, limited).attach('image', png, 'test.png').expect(429);
+    expect(await Upload.countDocuments()).toBe(1);
+    const thread = await Thread.create({ listing: listing._id, host: host.user._id, guest: guest.user._id });
+    await AbuseCounter.create({ _id: key('messages', guest.user, 60), count: 30, expiresAt: new Date(Date.now() + 60000) });
+    await call(guest, 'post', '/threads/' + thread._id + '/messages', { text: 'spam' }, limited).expect(429);
+    expect((await Thread.findById(thread._id)).messages).toHaveLength(0);
+  });
+  test('limits normalized login identities across IPs and handles counter contention safely', async () => {
+    const { AbuseCounter } = require('../src/models');
+    const limited = createApp();
+    const identity = crypto.createHash('sha256').update('guest@example.com').digest('hex');
+    await AbuseCounter.create({ _id: 'login:' + identity + ':' + Math.floor(Date.now() / 900000), count: 20, expiresAt: new Date(Date.now() + 900000) });
+    await call(null, 'post', '/auth/login', { email: 'GUEST@example.com', password: 'Password123!' }, limited).expect(429);
+    await call(null, 'post', '/auth/login', { email: {}, password: 'x' }, limited).expect(400);
+    const spy = jest.spyOn(AbuseCounter, 'findOneAndUpdate').mockRejectedValueOnce({ code: 11000 });
+    await call(guest, 'post', '/support', { subject: 'Help', message: 'Question' }, limited).expect(201);
+    expect(spy).toHaveBeenCalledTimes(2);
+    spy.mockRejectedValueOnce(new Error('counter unavailable'));
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await call(guest, 'post', '/support', { subject: 'Help', message: 'Question' }, limited).expect(500);
+    expect(await Support.countDocuments()).toBe(1);
+    log.mockRestore();
+  });
+  test('rejects duplicate pending reservations even with different request keys', async () => {
+    const results = await Promise.all([1, 2].map(() => call(guest, 'post', '/bookings', stay()).set('Idempotency-Key', crypto.randomUUID())));
+    expect(results.map(r => r.status).sort()).toEqual([201, 409]);
+    expect((await Listing.findById(listing._id)).bookings).toHaveLength(1);
+  });
+  test('rejects oversized requests before writes and does not echo malformed JSON', async () => {
+    const response = await call(guest, 'post', '/support', { subject: 'Help', message: 'x'.repeat(110000) }).expect(413);
+    expect(response.body.error).toBe('Request body is too large');
+    const malformed = await request(app).post('/api/support').set('Content-Type', 'application/json').send('{private-data').expect(400);
+    expect(malformed.body.error).toBe('Invalid JSON body');
+    expect(await Support.countDocuments()).toBe(0);
+  });
+  test('seeds labeled demo reviews idempotently without inventing stays or weakening review rules', async () => {
+    const { populateDemoReviews } = require('../src/demoReviews');
+    expect(await populateDemoReviews(Listing, { _id: listing._id })).toEqual({ listings: 1, added: 3 });
+    expect(await populateDemoReviews(Listing, { _id: listing._id })).toEqual({ listings: 1, added: 0 });
+    const result = await call(null, 'get', '/listings/' + listing._id).expect(200);
+    expect(result.body.listing.reviews).toHaveLength(3);
+    expect(result.body.listing.reviews.every(r => r.isDemo && r.comment.startsWith('Fictional demo review:'))).toBe(true);
+    expect((await Listing.findById(listing._id)).bookings).toHaveLength(0);
+    await call(guest, 'post', '/listings/' + listing._id + '/reviews', { rating: 5, isDemo: true, userName: 'Fake' }).expect(403);
   });
 });

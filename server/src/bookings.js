@@ -1,3 +1,4 @@
+const { abuseLimit } = require('./abuse');
 const { Router } = require('express');
 const mongoose = require('mongoose');
 const { Listing, Cart } = require('./models');
@@ -23,7 +24,7 @@ async function createBooking(listingId, user, body, requestKey) {
     _id: listing._id, archived: false,
     // Retry if price or capacity changed while computing the quote.
     price: listing.price, maxGuests: listing.maxGuests,
-    $and: [{ bookings: { $not: { $elemMatch: overlap(stay) } } }, { bookings: { $not: { $elemMatch: { user: user._id, requestKey } } } }]
+    $and: [{ bookings: { $not: { $elemMatch: overlap(stay) } } }, { bookings: { $not: { $elemMatch: { user: user._id, requestKey } } } }, { bookings: { $not: { $elemMatch: { user: user._id, status: 'pending', checkIn: stay.checkIn, checkOut: stay.checkOut } } } }, { 'bookings.999': { $exists: false } }]
   }, { $push: { bookings: { _id: bookingId, ...stay, user: user._id, requestKey } } }, { new: true });
   if (!updated) {
     const retry = await Listing.findById(listing._id);
@@ -45,7 +46,7 @@ function bookingRoutes() {
     const listings = await Listing.find({ $or: [{ host: req.user._id }, { 'bookings.user': req.user._id }] });
     res.json({ bookings: listings.flatMap(l => l.bookings.filter(b => l.host.equals(req.user._id) || b.user.equals(req.user._id)).map(b => publicBooking(b, l))) });
   });
-  router.post('/', async (req, res) => {
+  router.post('/', abuseLimit('bookings'), async (req, res) => {
     const key = req.get('Idempotency-Key');
     if (!key || !/^[\w-]{8,100}$/.test(key)) fail(400, 'An Idempotency-Key header is required');
     const booking = await createBooking(req.body.propertyId, req.user, req.body, key);
@@ -78,7 +79,7 @@ function cartRoutes() {
       image: item.listing.images[0], archived: item.listing.archived, checkIn: item.checkIn, checkOut: item.checkOut, guests: item.guests,
       totalPrice: Math.round(item.listing.price * 100) * ((item.checkOut - item.checkIn) / 86400000) / 100 })) });
   });
-  router.post('/', async (req, res) => {
+  router.post('/', abuseLimit('bookings'), async (req, res) => {
     const listing = await getListing(req.body.propertyId);
     if (listing.host._id.equals(req.user._id)) fail(400, 'You cannot book your own property');
     const stay = stayDetails(req.body, listing);
@@ -90,7 +91,7 @@ function cartRoutes() {
     if (!deleted.deletedCount) fail(404, 'Cart item not found');
     res.sendStatus(204);
   });
-  router.post('/submit', async (req, res) => {
+  router.post('/submit', abuseLimit('bookings'), async (req, res) => {
     const items = await Cart.find({ user: req.user._id });
     if (!items.length) fail(400, 'Your cart is empty');
     const results = [];

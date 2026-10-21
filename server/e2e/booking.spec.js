@@ -43,7 +43,7 @@ test('host publishes a property; traveler books; host accepts; both exchange per
   await expect(guest.getByRole('status')).toContainText('1 booking request(s) submitted');
   await host.getByRole('link', { name: 'Bookings', exact: true }).click();
   await host.getByRole('button', { name: 'Accept', exact: true }).click();
-  await expect(host.getByText('accepted ? Hosting', { exact: true })).toBeVisible();
+  await expect(host.getByRole('article').getByText('accepted', { exact: true })).toBeVisible();
   await guest.getByRole('link', { name: 'My Bookings', exact: true }).click();
   await guest.getByRole('button', { name: 'Simulate Payment' }).click();
   await expect(guest.getByRole('status')).toContainText('No money was charged');
@@ -54,20 +54,46 @@ test('host publishes a property; traveler books; host accepts; both exchange per
   await guest.getByRole('button', { name: 'Message Host' }).click();
   await guest.getByRole('textbox', { name: 'Message', exact: true }).fill('When can we check in?');
   await guest.getByRole('button', { name: 'Send message' }).click();
-  await expect(guest.getByText('When can we check in?', { exact: true })).toBeVisible();
+  await expect(guest.getByLabel('Conversation messages').getByText('When can we check in?', { exact: true })).toBeVisible();
   await host.getByRole('link', { name: 'Messages', exact: true }).click();
   await host.getByRole('button', { name: /Browser Beach House/ }).click();
-  await expect(host.getByText('When can we check in?', { exact: true })).toBeVisible();
+  await expect(host.getByLabel('Conversation messages').getByText('When can we check in?', { exact: true })).toBeVisible();
   await host.getByRole('textbox', { name: 'Message', exact: true }).fill('After 3 PM.');
   await host.getByRole('button', { name: 'Send message' }).click();
   await guest.reload();
-  await expect(guest.getByText('After 3 PM.', { exact: true })).toBeVisible();
+  await expect(guest.getByLabel('Conversation messages').getByText('After 3 PM.', { exact: true })).toBeVisible();
   await guest.getByRole('link', { name: 'Account', exact: true }).click();
   await guest.getByLabel('Display name').fill('Traveler Updated');
   await guest.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(guest.getByRole('status')).toContainText('Account updated');
   await guest.reload();
   await expect(guest.getByLabel('Display name')).toHaveValue('Traveler Updated');
+  await guest.getByRole('button', { name: 'Sign out other sessions' }).click();
+  await expect(guest.getByRole('status')).toContainText('Other sessions have been signed out');
+  await guest.getByRole('link', { name: 'Messages', exact: true }).click();
+  await guest.getByRole('button', { name: /Browser Beach House/ }).click();
+  await guest.getByRole('button', { name: 'Block conversation', exact: true }).click();
+  await expect(guest.getByRole('textbox', { name: 'Message', exact: true })).toBeDisabled();
+  await host.reload();
+  await expect(host.getByRole('textbox', { name: 'Message', exact: true })).toBeDisabled();
+  await guest.getByRole('button', { name: 'Unblock conversation', exact: true }).click();
+  await expect(guest.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled();
+  await guest.getByRole('link', { name: 'Report a concern' }).click();
+  await expect(guest.getByLabel('Subject')).toHaveValue(/Report conversation/);
+  await guest.getByLabel('Message', { exact: true }).fill('A sample support concern for the integration test.');
+  await guest.getByRole('button', { name: 'Send Request' }).click();
+  await expect(guest.getByRole('status')).toContainText('Reference:');
+  // Inspect all refreshed workspaces at both mobile and desktop sizes.
+  for (const width of [390, 1440]) {
+    await guest.setViewportSize({ width, height: 900 });
+    for (const route of ['/bookings', '/account', '/support', '/chat']) {
+      await guest.goto(route);
+      await expect(guest.getByRole('navigation', { name: 'Your workspace' })).toBeVisible();
+      if (route === '/chat') await guest.getByRole('button', { name: /Browser Beach House/ }).click();
+      expect(await guest.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await guest.screenshot({ path: `test-results/ui-${route.slice(1)}-${width}.png`, fullPage: true });
+    }
+  }
   await guest.setViewportSize({ width: 390, height: 844 });
   expect(await guest.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await guest.getByRole('button', { name: 'Logout' }).click();

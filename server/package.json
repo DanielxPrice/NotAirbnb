@@ -7,7 +7,8 @@
     "dev": "node --watch src/server.js",
     "test": "jest --runInBand --coverage",
     "seed": "node src/seed.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seed:reviews": "node src/seedReviews.js"
   },
   "engines": {
     "node": ">=22"
@@ -38,7 +39,8 @@
     "collectCoverageFrom": [
       "src/**/*.js",
       "!src/server.js",
-      "!src/seed.js"
+      "!src/seed.js",
+      "!src/seedReviews.js"
     ],
     "coverageThreshold": {
       "global": {

@@ -1,3 +1,4 @@
+const { abuseLimit } = require('./abuse');
 const { Router } = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
@@ -10,7 +11,7 @@ function uploadRoutes(config) {
   const saveImage = imageStorage(config);
   const router = Router();
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  router.post('/', authenticate, hostOnly, upload.single('image'), async (req, res) => {
+  router.post('/', authenticate, hostOnly, abuseLimit('uploads'), upload.single('image'), async (req, res) => {
     if (!req.file) fail(400, 'Choose an image');
     let buffer;
     try {

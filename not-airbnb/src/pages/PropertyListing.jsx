@@ -112,7 +112,7 @@ const PropertyListing = () => {
                   </span>
                 </div>
                 <p className="mt-2 text-gray-600">{review.comment}</p>
-                <p className="mt-1 text-sm text-gray-500">- {review.userName}</p>
+                <p className="mt-1 text-sm text-gray-500">- {review.userName}{review.isDemo && <span className="ml-2 rounded-full bg-rose-50 px-2 py-1 text-xs font-normal text-rose-700">Demo review</span>}</p>
               </div>
             ))}
             {user && (

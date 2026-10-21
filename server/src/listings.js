@@ -1,10 +1,11 @@
+const { abuseLimit } = require('./abuse');
 const { Router } = require('express');
 const { Listing, Upload } = require('./models');
 const { authenticate, hostOnly } = require('./auth');
 const { schemas, fail, id } = require('./validation');
 
 function publicListing(listing) {
-  const reviews = listing.reviews.map(review => ({ id: String(review._id), userName: review.userName, rating: review.rating, comment: review.comment, date: review.createdAt }));
+  const reviews = listing.reviews.map(review => ({ id: String(review._id), userName: review.userName, rating: review.rating, comment: review.comment, date: review.createdAt, isDemo: Boolean(review.isDemo) }));
   return {
     id: String(listing._id), title: listing.title, location: listing.location, description: listing.description,
     price: listing.price, bedrooms: listing.bedrooms, bathrooms: listing.bathrooms, maxGuests: listing.maxGuests,
@@ -26,7 +27,7 @@ function listingRoutes() {
   const router = Router();
   router.get('/', async (req, res) => {
     // Literal string matching avoids user-controlled regular expressions.
-    let listings = (await Listing.find({ archived: false }).populate('host', 'name').sort({ createdAt: -1 })).map(publicListing);
+    let listings = (await Listing.find({ archived: false }).select('-bookings').populate('host', 'name').sort({ createdAt: -1 })).map(publicListing);
     const q = String(req.query.q || '').toLowerCase().slice(0, 200);
     listings = listings.filter(l => `${l.title} ${l.location}`.toLowerCase().includes(q));
     for (const [key, field, compare] of [['minPrice', 'price', (a, b) => a >= b], ['maxPrice', 'price', (a, b) => a <= b], ['guests', 'maxGuests', (a, b) => a >= b], ['bedrooms', 'bedrooms', (a, b) => a >= b], ['rating', 'rating', (a, b) => a >= b]]) {
@@ -39,14 +40,14 @@ function listingRoutes() {
     res.json({ listings });
   });
   router.get('/:id', async (req, res) => res.json({ listing: publicListing(await getListing(req.params.id)) }));
-  router.post('/', authenticate, hostOnly, async (req, res) => {
+  router.post('/', authenticate, hostOnly, abuseLimit('listings'), async (req, res) => {
     const data = schemas.listing.parse(req.body);
     await ownedImages(data.images, req.user);
     const listing = await Listing.create({ ...data, host: req.user._id });
     await listing.populate('host', 'name');
     res.status(201).json({ listing: publicListing(listing) });
   });
-  router.put('/:id', authenticate, hostOnly, async (req, res) => {
+  router.put('/:id', authenticate, hostOnly, abuseLimit('listings'), async (req, res) => {
     const listing = await getListing(req.params.id);
     if (!listing.host._id.equals(req.user._id)) fail(403, 'Only the property owner can edit this listing');
     const data = schemas.listing.parse(req.body);
@@ -56,13 +57,13 @@ function listingRoutes() {
     if (!updated) fail(409, 'Property was archived');
     res.json({ listing: publicListing(updated) });
   });
-  router.delete('/:id', authenticate, hostOnly, async (req, res) => {
+  router.delete('/:id', authenticate, hostOnly, abuseLimit('listings'), async (req, res) => {
     const listing = await Listing.findOneAndUpdate({ _id: id(req.params.id), host: req.user._id, archived: false }, { $set: { archived: true } });
     if (!listing) fail(404, 'Property not found or not owned by you');
     // Existing accepted reservations remain payable and visible in booking history.
     res.sendStatus(204);
   });
-  router.post('/:id/reviews', authenticate, async (req, res) => {
+  router.post('/:id/reviews', authenticate, abuseLimit('reviews'), async (req, res) => {
     const data = schemas.review.parse(req.body);
     const listing = await getListing(req.params.id);
     if (!listing.bookings.some(b => b.user.equals(req.user._id) && b.status === 'paid' && b.checkOut <= new Date())) fail(403, 'Reviews require a completed, paid stay');

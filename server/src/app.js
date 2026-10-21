@@ -28,12 +28,16 @@ function createApp(options = {}) {
   // Browsers send origins without a trailing slash, even for homepage URLs.
   config.frontendUrl = config.frontendUrl.replace(/\/+$/, '');
   const app = express();
+  app.locals.disableRateLimit = Boolean(config.disableRateLimit);
   app.disable('x-powered-by');
   // Set the number of trusted reverse proxies explicitly for your deployment.
   app.set('trust proxy', Number(process.env.TRUST_PROXY || 0));
   app.use(helmet());
   app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   app.use(cors({ origin: config.frontendUrl, credentials: true }));
+  const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, skip: () => Boolean(config.disableRateLimit), message: { error: 'Too many attempts. Try again later' } });
+  app.use(['/api/auth/login', '/api/auth/register'], limiter);
+  app.use('/api', rateLimit({ windowMs: 60 * 1000, limit: 200, standardHeaders: 'draft-8', legacyHeaders: false, skip: () => Boolean(config.disableRateLimit), message: { error: 'Too many requests. Try again shortly' } }));
   app.use(express.json({ limit: '100kb' }), cookieParser());
   app.use((req, res, next) => { req.body ??= {}; next(); });
   app.use('/api', (req, res, next) => {
@@ -42,9 +46,6 @@ function createApp(options = {}) {
     }
     next();
   });
-  const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, skip: () => Boolean(config.disableRateLimit), message: { error: 'Too many attempts. Try again later' } });
-  app.use(['/api/auth/login', '/api/auth/register'], limiter);
-  app.use('/api', rateLimit({ windowMs: 60 * 1000, limit: 200, standardHeaders: 'draft-8', legacyHeaders: false, skip: () => Boolean(config.disableRateLimit), message: { error: 'Too many requests. Try again shortly' } }));
   app.get('/api/health', (req, res) => res.status(mongoose.connection.readyState === 1 ? 200 : 503).json({ ready: mongoose.connection.readyState === 1 }));
   app.use('/api/auth', authRoutes(config));
   app.use('/api/listings', listingRoutes());
@@ -57,6 +58,8 @@ function createApp(options = {}) {
   app.use('/api/support', supportRoutes());
   app.use((req, res) => res.status(404).json({ error: 'Endpoint not found' }));
   app.use((error, req, res, next) => {
+    if (error.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON body' });
+    if (error.type === 'entity.too.large') return res.status(413).json({ error: 'Request body is too large' });
     if (error instanceof ZodError) return res.status(400).json({ error: error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ') });
     if (error.code === 11000) return res.status(409).json({ error: 'This record already exists' });
     if (error.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Images must be under 5 MB' });

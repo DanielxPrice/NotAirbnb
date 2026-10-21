@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { Router } = require('express');
 const { User, Session } = require('./models');
+const { abuseLimit } = require('./abuse');
 const { schemas, fail } = require('./validation');
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const publicUser = user => ({ id: String(user._id), email: user.email, name: user.name, role: user.role });
@@ -32,7 +33,7 @@ function authRoutes(config) {
     const user = await User.create({ email: data.email, name: data.name || data.email.split('@')[0], role: data.role, passwordHash: await bcrypt.hash(data.password, 12) });
     await signIn(req, res, user, 201);
   });
-  router.post('/login', async (req, res) => {
+  router.post('/login', abuseLimit('login'), async (req, res) => {
     const data = schemas.login.parse(req.body);
     const user = await User.findOne({ email: data.email }).select('+passwordHash');
     // A valid dummy hash keeps nonexistent-account timing close to a bad password.
@@ -44,8 +45,12 @@ function authRoutes(config) {
     if (req.cookies.session) await Session.deleteOne({ tokenHash: hash(req.cookies.session) });
     res.clearCookie('session', cookieOptions(config)).sendStatus(204);
   });
+  router.post('/sessions/revoke-others', authenticate, abuseLimit('account'), async (req, res) => {
+    await Session.deleteMany({ user: req.user._id, tokenHash: { $ne: hash(req.cookies.session) } });
+    res.json({ message: 'Other sessions have been signed out.' });
+  });
   router.get('/me', authenticate, (req, res) => res.json({ user: publicUser(req.user) }));
-  router.patch('/me', authenticate, async (req, res) => {
+  router.patch('/me', authenticate, abuseLimit('account'), async (req, res) => {
     req.user.name = schemas.profile.parse(req.body).name;
     await req.user.save();
     res.json({ user: publicUser(req.user) });
