@@ -1,5 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { previewMode } from './preview';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import NavBar from './components/NavBar';
@@ -17,20 +18,22 @@ import SupportPage from './pages/SupportPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
+  const preview = previewMode();
   return (
-    <Router>
+    <Router basename={preview?.basename || "/"}>
       <AuthProvider>
         <DataProvider>
           <div className="min-h-screen bg-gray-50">
             <NavBar />
+            {preview && <aside aria-label="Preview mode" className="bg-rose-100 text-rose-900 px-4 py-4"><div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3"><div><strong>Preview only &middot; {preview.role} view</strong><p className="text-sm mt-1">Sample data. No account needed. Bookings, payments, messages, uploads, and changes are disabled.</p></div><div className="flex flex-wrap gap-4 text-sm font-semibold"><a href="/preview/traveler/search" className="underline">Traveler preview</a><a href="/preview/host/listings" className="underline">Host preview</a><a href="/" className="underline">Exit preview</a></div></div></aside>}
             <Routes>
               <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
               <Route path="/bookings" element={<ProtectedRoute><BookingsPage /></ProtectedRoute>} />
               <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
               <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
               <Route path="/" element={<HomePage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/login" element={preview ? <Navigate to="/search" replace /> : <LoginPage />} />
+              <Route path="/register" element={preview ? <Navigate to="/search" replace /> : <RegisterPage />} />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/listing/:id" element={<PropertyListing />} />
               <Route

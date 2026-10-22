@@ -1,8 +1,10 @@
+import { useAuth } from '../context/AuthContext';
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Workspace from '../components/Workspace';
 import { api } from '../api';
 export default function SupportPage() {
+  const { isPreview } = useAuth();
   const [params] = useSearchParams();
   const [subject, setSubject] = useState((params.get('subject') || '').slice(0, 200));
   const [message, setMessage] = useState('');
@@ -18,7 +20,7 @@ export default function SupportPage() {
     <form onSubmit={submit} className="workspace-panel md:col-span-2 space-y-5"><h2 className="text-xl font-semibold">Tell us what happened</h2>
       <label className="block text-sm font-medium">Subject<input required maxLength={200} value={subject} onChange={e => setSubject(e.target.value)} className="block w-full mt-2" placeholder="How can we help?" /></label>
       <label className="block text-sm font-medium">Message<textarea required maxLength={5000} value={message} onChange={e => setMessage(e.target.value)} className="block w-full mt-2" rows={7} placeholder="Share the details of your question or concern." /></label><p className="text-xs text-gray-500 text-right">{message.length} / 5,000</p>
-      {notice && <p role="status" className="workspace-notice">{notice}</p>}<button disabled={busy} className="btn btn-primary">{busy ? 'Sending...' : 'Send Request'}</button>
+      {notice && <p role="status" className="workspace-notice">{notice}</p>}<button disabled={busy || isPreview} className="btn btn-primary">{busy ? 'Sending...' : 'Send Request'}</button>
     </form></div>
   </Workspace>;
 }

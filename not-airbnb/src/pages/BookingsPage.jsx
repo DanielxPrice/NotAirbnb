@@ -4,7 +4,7 @@ import Workspace, { EmptyState } from '../components/Workspace';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 export default function BookingsPage() {
-  const { user } = useAuth();
+  const { user, isPreview } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -45,10 +45,10 @@ export default function BookingsPage() {
       <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-wider text-gray-500 mb-2">{b.hostId === user.id ? 'Hosting' : 'Your getaway'}</p><Link className="text-xl font-semibold hover:text-rose-600" to={'/listing/' + b.propertyId}>{b.propertyTitle}</Link></div><span className={'text-xs font-semibold px-3 py-2 rounded-full capitalize ' + statusClass[b.status]}>{b.status === 'paid' && b.paymentMode === 'simulated' ? 'Paid (simulated)' : b.status}</span></div>
       <dl className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-y border-gray-100 py-5 my-5"><div><dt className="text-xs text-gray-500 mb-1">Stay dates</dt><dd className="text-sm font-medium">{date(b.checkIn)} &ndash; {date(b.checkOut)}</dd></div><div><dt className="text-xs text-gray-500 mb-1">Guests</dt><dd className="font-medium">{b.guests}</dd></div><div><dt className="text-xs text-gray-500 mb-1">Stay total</dt><dd className="font-semibold">{'$' + b.totalPrice.toFixed(2)}</dd></div></dl>
       <div className="flex flex-wrap gap-3">
-        {b.hostId === user.id && b.status === 'pending' && <><button disabled={busy} className="btn btn-primary" onClick={() => action(b, 'accepted')}>Accept</button><button disabled={busy} className="btn btn-secondary" onClick={() => action(b, 'denied')}>Deny</button></>}
-        {b.userId === user.id && b.status === 'pending' && <button disabled={busy} className="btn btn-secondary" onClick={() => action(b, 'cancelled')}>Cancel Request</button>}
-        {b.userId === user.id && b.status === 'accepted' && <button disabled={busy} className="btn btn-primary" onClick={() => action(b, 'pay')}>Simulate Payment</button>}
-        {b.userId === user.id && <button disabled={busy} className="btn btn-secondary" onClick={() => action(b, 'message')}>Message Host</button>}
+        {b.hostId === user.id && b.status === 'pending' && <><button disabled={busy || isPreview} className="btn btn-primary" onClick={() => action(b, 'accepted')}>Accept</button><button disabled={busy || isPreview} className="btn btn-secondary" onClick={() => action(b, 'denied')}>Deny</button></>}
+        {b.userId === user.id && b.status === 'pending' && <button disabled={busy || isPreview} className="btn btn-secondary" onClick={() => action(b, 'cancelled')}>Cancel Request</button>}
+        {b.userId === user.id && b.status === 'accepted' && <button disabled={busy || isPreview} className="btn btn-primary" onClick={() => action(b, 'pay')}>Simulate Payment</button>}
+        {b.userId === user.id && <button disabled={busy || isPreview} className="btn btn-secondary" onClick={() => action(b, 'message')}>Message Host</button>}
       </div>
     </article>)}
   </Workspace>;

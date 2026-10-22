@@ -17,3 +17,9 @@ Frontend tests cover sign-in and registration, protected routes, cart partial fa
 The browser scenario uses separate host and traveler sessions to create a property, upload a photo, book, accept, simulate payment, exchange messages, update a profile, revoke other sessions, block/unblock messaging, and report a concern. It captures the four workspace screens at 390px and 1440px and checks for horizontal overflow. The screenshots are artifacts for visual inspection, not pixel-diff assertions.
 
 GitHub Actions runs backend, frontend/build, and browser jobs on pushes and pull requests. Browser artifacts and backend coverage are uploaded. Browser tests require a browser installation and the MongoDB test binary. These checks do not measure production capacity or constitute a security audit.
+
+## Read-only preview
+
+The landing-page preview links to `/preview/traveler/search`; `/preview/host/listings` shows the host UI. These routes reuse the UI with fictional, bundled data. The API adapter returns only explicitly allowed local GET fixtures and rejects all mutations or unknown endpoints before fetch. It never restores an existing session, creates an account, or writes to the backend. Login/registration routes within preview redirect to preview search; Exit preview performs a full navigation back to the regular site. Existing real sessions are left unchanged. Public sample image URLs still load normally.
+
+Preview tests check disabled mutation controls, host editor/upload restrictions, isolated fixtures, role views, search filtering, and the API guard. The browser preview scenario intercepts all `/api/` requests and asserts that browsing/reloading preview produces none, then checks that exiting leaves the anonymous visitor without session cookies.

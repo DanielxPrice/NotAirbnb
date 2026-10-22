@@ -1,7 +1,9 @@
+import { useAuth } from '../context/AuthContext';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 export default function CartPage() {
+  const { isPreview } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
@@ -32,10 +34,10 @@ export default function CartPage() {
       {items.map(item => <div key={item.id} className="bg-white rounded-lg shadow-md p-6 mb-4 flex justify-between gap-4">
         <div><Link className="text-xl font-semibold" to={'/listing/' + item.propertyId}>{item.title}</Link>
           <p>{item.checkIn.slice(0, 10)} ? {item.checkOut.slice(0, 10)} ? {item.guests} guests</p><p>{'$' + item.totalPrice.toFixed(2)}{item.archived && ' ? No longer available'}</p></div>
-        <button className="text-rose-600" disabled={busy} onClick={() => remove(item.id)}>Remove</button>
+        <button className="text-rose-600" disabled={busy || isPreview} onClick={() => remove(item.id)}>Remove</button>
       </div>)}
       <p className="mb-4">Total: {'$' + items.reduce((sum, i) => sum + i.totalPrice, 0).toFixed(2)}. Final pricing is confirmed when you submit.</p>
-      <button className="btn btn-primary" disabled={busy} onClick={submit}>{busy ? 'Submitting?' : 'Submit Booking Requests'}</button>
+      <button className="btn btn-primary" disabled={busy || isPreview} onClick={submit}>{busy ? 'Submitting?' : 'Submit Booking Requests'}</button>
     </>}
     <Link className="block mt-6 text-rose-600" to="/bookings">My Bookings</Link>
   </main>;

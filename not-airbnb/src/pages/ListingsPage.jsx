@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { StarIcon, MapPinIcon, HomeIcon, SparklesIcon } from '@heroicons/react/24/solid';
 
 const ListingsPage = () => {
-  const { user } = useAuth();
+  const { user, isPreview } = useAuth();
   const { listings, loading, refresh } = useData();
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -148,9 +148,9 @@ const ListingsPage = () => {
               </div>
             </div>
             <label className="block">Property photos (JPEG, PNG, WebP; up to 5 MB each)
-              <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy} onChange={uploadImages} className="block mt-2" />
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy || isPreview} onChange={uploadImages} className="block mt-2" />
             </label>
-            <div className="flex flex-wrap gap-4">{images.map((image, i) => <div key={image}><img src={image} alt={'Property photo ' + (i + 1)} className="h-24 rounded" /><button type="button" disabled={busy} className="text-rose-600" onClick={() => setImages(images.filter((_, index) => index !== i))}>Remove photo</button></div>)}</div>
+            <div className="flex flex-wrap gap-4">{images.map((image, i) => <div key={image}><img src={image} alt={'Property photo ' + (i + 1)} className="h-24 rounded" /><button type="button" disabled={busy || isPreview} className="text-rose-600" onClick={() => setImages(images.filter((_, index) => index !== i))}>Remove photo</button></div>)}</div>
             <div className="flex justify-end space-x-4">
               <button
                 type="button"
@@ -160,7 +160,7 @@ const ListingsPage = () => {
                 Cancel
               </button>
               <button
-                type="submit" disabled={busy || images.length === 0}
+                type="submit" disabled={busy || isPreview || images.length === 0}
                 className="bg-rose-500 text-white px-4 py-2 rounded-md hover:bg-rose-600"
               >
                 {busy ? 'Saving...' : editing ? 'Save Changes' : 'Add Listing'}
@@ -201,7 +201,7 @@ const ListingsPage = () => {
                 </div>
                 <p className="text-lg font-semibold text-gray-900">${listing.price}/night</p>
               </div>
-              <div className="flex gap-4 mt-4"><button disabled={busy} className="text-rose-600" onClick={() => edit(listing)}>Edit</button><button disabled={busy} className="text-rose-600" onClick={() => archive(listing)}>Archive</button></div>
+              <div className="flex gap-4 mt-4"><button disabled={busy} className="text-rose-600" onClick={() => edit(listing)}>Edit</button><button disabled={busy || isPreview} className="text-rose-600" onClick={() => archive(listing)}>Archive</button></div>
             </div>
           </div>
         ))}

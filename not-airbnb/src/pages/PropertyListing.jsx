@@ -7,7 +7,7 @@ import { StarIcon, MapPinIcon, HomeIcon, SparklesIcon, UserIcon } from '@heroico
 
 const PropertyListing = () => {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, isPreview } = useAuth();
   const { listings, loading, refresh } = useData();
   const navigate = useNavigate();
   const [notice, setNotice] = useState('');
@@ -96,7 +96,7 @@ const PropertyListing = () => {
           </div>
           <p className="mt-4 text-gray-600">{listing.description}</p>
           <div className="flex gap-3 overflow-x-auto mt-4">{listing.images.slice(1).map(image => <img key={image} src={image} alt={listing.title} className="h-32 rounded-lg" />)}</div>
-          {user?.id !== listing.host.id && <button className="btn btn-secondary mt-4" disabled={busy} onClick={messageHost}>Message Host</button>}
+          {user?.id !== listing.host.id && <button className="btn btn-secondary mt-4" disabled={busy || isPreview} onClick={messageHost}>Message Host</button>}
 
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Reviews</h2>
@@ -141,7 +141,7 @@ const PropertyListing = () => {
                     />
                   </div>
                   <button
-                    type="submit" disabled={busy}
+                    type="submit" disabled={busy || isPreview}
                     className="bg-rose-500 text-white px-4 py-2 rounded-md hover:bg-rose-600"
                   >
                     Submit Review
@@ -197,12 +197,12 @@ const PropertyListing = () => {
                 </div>
               </div>
               <button
-                type="submit" disabled={busy}
+                type="submit" disabled={busy || isPreview}
                 className="w-full bg-rose-500 text-white px-4 py-2 rounded-md hover:bg-rose-600"
               >
                 Book Now
               </button>
-              <button type="submit" value="cart" disabled={busy} className="w-full btn btn-secondary">Add to Cart</button>
+              <button type="submit" value="cart" disabled={busy || isPreview} className="w-full btn btn-secondary">Add to Cart</button>
             </form>
           </div>
         </div>

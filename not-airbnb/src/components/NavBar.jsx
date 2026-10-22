@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 const NavBar = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isPreview } = useAuth();
   const navigate = useNavigate();
 
   const handleSearch = (e) => {
@@ -69,12 +69,12 @@ const NavBar = () => {
                 <Link to="/chat" className="text-gray-700 hover:text-rose-500">
                   Messages
                 </Link>
-                <button
+                {isPreview ? <a href="/" className="btn btn-secondary">Leave preview</a> : <button
                   onClick={handleLogout}
                   className="bg-rose-500 text-white px-4 py-2 rounded-full hover:bg-rose-600"
                 >
                   Logout
-                </button>
+                </button>}
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-4">

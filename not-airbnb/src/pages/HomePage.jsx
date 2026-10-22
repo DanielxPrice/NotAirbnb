@@ -5,7 +5,7 @@ import { useData } from '../context/DataContext';
 import PropertyCard from '../components/PropertyCard';
 
 const HomePage = () => {
-  const { user } = useAuth();
+  const { user, isPreview } = useAuth();
   const { listings, loading } = useData();
   const featured = listings.slice(0, 3);
   return (
@@ -20,6 +20,7 @@ const HomePage = () => {
             {!user && <Link to="/register" className="btn bg-white text-gray-800 border border-rose-100 px-7 py-3 hover:bg-rose-50">Become a Host</Link>}
             {user?.role === 'host' && <Link to="/listings" className="btn bg-white text-gray-800 px-7 py-3">Manage your spaces</Link>}
           </div>
+          {!isPreview && <div className="mt-5"><a href="/preview/traveler/search" className="font-semibold text-rose-700 underline underline-offset-4">Preview the app without an account &rarr;</a><p className="mt-2 text-sm text-gray-500">Take a look around with sample stays and read-only account screens.</p></div>}
         </div>
         <div className="hero-decoration" aria-hidden="true"><span /><span /><span /></div>
       </section>

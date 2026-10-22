@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { previewMode } from '../preview';
 import { api } from '../api';
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -17,7 +18,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (email, password, role) => { const data = await api('/auth/register', { method: 'POST', body: { email, password, role } }); setUser(data.user); setError(''); };
   const logout = async () => { await api('/auth/logout', { method: 'POST' }); setUser(null); };
   const updateProfile = async name => { const data = await api('/auth/me', { method: 'PATCH', body: { name } }); setUser(data.user); };
-  return <AuthContext.Provider value={{ user, currentUser: user, loading, login, register, logout, updateProfile }}>
+  return <AuthContext.Provider value={{ isPreview: Boolean(previewMode()), user, currentUser: user, loading, login, register, logout, updateProfile }}>
     {error && <p role="alert" className="p-4 text-red-700">{error}</p>}{children}
   </AuthContext.Provider>;
 };

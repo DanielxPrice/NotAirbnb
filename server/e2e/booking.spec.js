@@ -103,3 +103,37 @@ test('host publishes a property; traveler books; host accepts; both exchange per
   await hostContext.close();
   await guestContext.close();
 });
+
+test('anonymous preview offers traveler and host screens without any backend calls', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: /Preview the app without an account/ })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  const requests = [];
+  await page.route('**/api/**', route => { requests.push(route.request().url()); return route.abort(); });
+  await page.getByRole('link', { name: /Preview the app without an account/ }).click();
+  await expect(page.getByRole('heading', { name: 'Coastal Weekend Villa' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Coastal Weekend Villa' })).toBeVisible();
+  await page.getByRole('link', { name: 'Bookings', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Simulate Payment' })).toBeDisabled();
+  await page.getByRole('link', { name: 'Account', exact: true }).click();
+  await expect(page.getByLabel('Display name')).toHaveValue('Sample Traveler');
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  await page.getByRole('link', { name: 'Messages', exact: true }).click();
+  await page.getByRole('button', { name: /Coastal Weekend Villa/ }).click();
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  await page.getByRole('link', { name: 'Host preview', exact: true }).click();
+  await page.getByRole('button', { name: 'Add New Listing', exact: true }).click();
+  await expect(page.locator('input[type=file]')).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Add Listing', exact: true })).toBeDisabled();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(requests).toEqual([]);
+  await page.unroute('**/api/**');
+  await page.getByRole('link', { name: 'Exit preview', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Login', exact: true })).toBeVisible();
+  expect(await context.cookies()).toEqual([]);
+  await context.close();
+});

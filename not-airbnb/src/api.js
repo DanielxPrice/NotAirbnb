@@ -1,5 +1,7 @@
+import { previewMode, previewResponse } from './preview';
 // Use a same-origin proxy in development and production.
 export async function api(path, { method = 'GET', body, headers = {}, ...options } = {}) {
+  if (previewMode()) return previewResponse(path, method);
   const isForm = body instanceof FormData;
   const response = await fetch('/api' + path, {
     ...options, method, credentials: 'include',

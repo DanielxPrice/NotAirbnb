@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Workspace, { EmptyState } from '../components/Workspace';
 import { api } from '../api';
 export default function ChatPage() {
-  const { user } = useAuth();
+  const { user, isPreview } = useAuth();
   const [params, setParams] = useSearchParams();
   const [threads, setThreads] = useState([]);
   const [message, setMessage] = useState('');
@@ -42,7 +42,7 @@ export default function ChatPage() {
       </aside>
       <section className="md:col-span-2 workspace-panel min-w-0">
         {!selected ? <EmptyState title="Select a conversation"><p>Your conversations will appear here.</p><Link to="/search" className="inline-block text-rose-600 font-semibold mt-4">Explore stays &rarr;</Link></EmptyState> : <>
-          <div className="border-b border-gray-100 pb-4 mb-4"><h2 className="text-xl font-semibold break-words">{selected.propertyTitle}</h2><p className="text-sm text-gray-500 mt-1">With {selected.hostId === user.id ? selected.guestName : selected.hostName}</p><div className="flex flex-wrap gap-4 mt-3 text-xs"><button disabled={busy} className="text-gray-600 underline" onClick={toggleBlock}>{selected.blockedByMe ? 'Unblock conversation' : 'Block conversation'}</button><Link className="text-rose-700 underline" to={'/support?subject=' + encodeURIComponent('Report conversation ' + selected.id)}>Report a concern</Link></div></div>
+          <div className="border-b border-gray-100 pb-4 mb-4"><h2 className="text-xl font-semibold break-words">{selected.propertyTitle}</h2><p className="text-sm text-gray-500 mt-1">With {selected.hostId === user.id ? selected.guestName : selected.hostName}</p><div className="flex flex-wrap gap-4 mt-3 text-xs"><button disabled={busy || isPreview} className="text-gray-600 underline" onClick={toggleBlock}>{selected.blockedByMe ? 'Unblock conversation' : 'Block conversation'}</button><Link className="text-rose-700 underline" to={'/support?subject=' + encodeURIComponent('Report conversation ' + selected.id)}>Report a concern</Link></div></div>
           <div className="h-80 overflow-y-auto space-y-3 pr-2" aria-label="Conversation messages">
             {selected.messages.length === 0 && <p className="py-8 text-center text-sm text-gray-400">Say hello and start planning your stay.</p>}
             {selected.messages.map(m => <div key={m.id} className={'p-4 rounded-2xl max-w-md w-fit ' + (m.senderId === user.id ? 'bg-rose-50 ml-auto rounded-br-sm' : 'bg-gray-100 rounded-bl-sm')}>
@@ -51,8 +51,8 @@ export default function ChatPage() {
           </div>
           {selected.blocked && <p className="workspace-notice mt-4">This conversation is blocked. New messages cannot be sent.</p>}
           <form onSubmit={send} className="flex gap-3 mt-5 pt-4 border-t border-gray-100">
-            <input aria-label="Message" disabled={selected.blocked} required maxLength={2000} value={message} onChange={e => setMessage(e.target.value)} className="flex-1 min-w-0" placeholder="Write a message..." />
-            <button disabled={busy || selected.blocked || !message.trim()} className="btn btn-primary" aria-label="Send message"><PaperAirplaneIcon className="h-5 w-5" /></button>
+            <input aria-label="Message" disabled={selected.blocked || isPreview} required maxLength={2000} value={message} onChange={e => setMessage(e.target.value)} className="flex-1 min-w-0" placeholder="Write a message..." />
+            <button disabled={busy || isPreview || selected.blocked || !message.trim()} className="btn btn-primary" aria-label="Send message"><PaperAirplaneIcon className="h-5 w-5" /></button>
           </form>
         </>}
       </section>
